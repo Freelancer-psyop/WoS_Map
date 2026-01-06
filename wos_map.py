@@ -115,4 +115,31 @@ with st.sidebar:
 
     if st.button("Undo Last Path"):
         if st.session_state.paths:
-            st.session_state.paths.pop
+            st.session_state.paths.pop()
+            save_all()
+            st.rerun()
+
+# --- 5. DRAW MAP ---
+fig = go.Figure()
+
+# Paths (Drawn first to stay behind markers)
+for p in st.session_state.paths:
+    fig.add_trace(go.Scatter(x=p['x'], y=p['y'], mode='lines', line=dict(color=p['color'], width=3), showlegend=False))
+
+# Facilities
+for name, attr in facilities.items():
+    fig.add_trace(go.Scatter(x=attr['x'], y=attr['y'], name=name, mode='markers', marker=dict(color=attr['color'], size=attr['size'])))
+
+# Claim Circles
+for c in st.session_state.claims:
+    fig.add_trace(go.Scatter(x=[c['x']], y=[c['y']], mode='markers', showlegend=False, hoverinfo='skip',
+                             marker=dict(size=40, color='rgba(0,0,0,0)', line=dict(color=c['color'], width=4))))
+
+# Alliance Diamonds
+for tag, attr in st.session_state.alliances.items():
+    fig.add_trace(go.Scatter(x=attr['x'], y=attr['y'], name=tag, mode='markers+text', text=[tag]*len(attr['x']),
+                             textposition="top center", marker=dict(size=28, color=attr['color'], symbol='diamond')))
+
+fig.update_layout(template="plotly_dark", height=850, xaxis=dict(range=[0, 1200]), yaxis=dict(range=[0, 1200]))
+st.plotly_chart(fig, width='stretch')
+st.plotly_chart(fig, height='stretch')
