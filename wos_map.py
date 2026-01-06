@@ -5,7 +5,7 @@ import os
 
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="WoS Strategic Map", layout="wide")
-st.title("🛡️ WoS Tactical Path Planner")
+st.title("🛡️ WoS Facility Planner")
 
 # --- 2. PERSISTENCE SETUP ---
 ALLIANCE_FILE = "wos_alliances.csv"
