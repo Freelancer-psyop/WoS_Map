@@ -3,18 +3,19 @@ import plotly.graph_objects as go
 import pandas as pd
 import os
 
-st.set_page_config(page_title="WoS Alliance & Facility Map", layout="wide")
+st.set_page_config(page_title="WoS Tactical Map", layout="wide")
 st.title("❄️ Whiteout Survival: State Tactical Command")
 
 DATA_FILE = "wos_map_data.csv"
 
-# --- HELPER: COORDINATE CONVERSION ---
+# --- DATA PERSISTENCE ---
 def load_alliances():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
         return {row['tag']: {'x': [float(i) for i in str(row['x']).split('|')], 
                              'y': [float(i) for i in str(row['y']).split('|')], 
                              'color': row['color']} for _, row in df.iterrows()}
+    # Initial starting data
     return {
         'HEL': {'x': [728, 697], 'y': [902, 755], 'color': '#6600CC'},
         'KOR': {'x': [610, 518], 'y': [285, 444], 'color': '#993333'},
@@ -29,10 +30,10 @@ def save_alliances(data):
     rows = [{'tag': t, 'x': "|".join(map(str, a['x'])), 'y': "|".join(map(str, a['y'])), 'color': a['color']} for t, a in data.items()]
     pd.DataFrame(rows).to_csv(DATA_FILE, index=False)
 
-# --- DATASETS ---
 if 'alliances' not in st.session_state:
     st.session_state.alliances = load_alliances()
 
+# --- FULL FACILITY DATASET ---
 facilities = {
     'Construction Lvl 1': {'x': [1068, 537, 138, 138, 138, 666, 1068, 1068], 'y': [138, 138, 138, 666, 1038, 1068, 567, 1068], 'color': '#1f77b4', 'size': 12},
     'Construction Lvl 3': {'x': [486, 768, 867, 327], 'y': [327, 867, 567, 666], 'color': '#1f77b4', 'size': 20},
@@ -51,15 +52,23 @@ facilities = {
 # --- SIDEBAR TOOLS ---
 with st.sidebar:
     st.header("Strategic Tools")
-    with st.expander("Register/Move Alliance"):
-        tag = st.text_input("Alliance Tag")
-        col = st.color_picker("Color", "#FFFFFF")
-        x_c = st.number_input("X Coord", 0, 1200)
-        y_c = st.number_input("Y Coord", 0, 1200)
-        if st.button("Save Changes"):
+    with st.expander("Update Alliance Position"):
+        # Select existing tag or type a new one
+        existing_tags = list(st.session_state.alliances.keys())
+        tag = st.selectbox("Select Alliance", existing_tags + ["Add New..."])
+        
+        if tag == "Add New...":
+            tag = st.text_input("New Alliance Tag")
+        
+        col = st.color_picker("Color", st.session_state.alliances.get(tag, {'color': '#FFFFFF'})['color'])
+        x_c = st.number_input("X Coordinate", 0, 1200, value=int(st.session_state.alliances.get(tag, {'x': [600]})['x'][0]))
+        y_c = st.number_input("Y Coordinate", 0, 1200, value=int(st.session_state.alliances.get(tag, {'y': [600]})['y'][0]))
+        
+        if st.button("Save HQ Location"):
             if tag:
                 st.session_state.alliances[tag] = {'x': [x_c], 'y': [y_c], 'color': col}
                 save_alliances(st.session_state.alliances)
+                st.success(f"{tag} location updated!")
                 st.rerun()
 
 # --- MAP RENDERING ---
@@ -67,21 +76,27 @@ fig = go.Figure()
 
 # Facilities Layer
 for name, attr in facilities.items():
-    fig.add_trace(go.Scatter(x=attr['x'], y=attr['y'], name=name, mode='markers', 
-                             marker=dict(color=attr['color'], size=attr['size']), legendgroup="Facilities"))
+    fig.add_trace(go.Scatter(
+        x=attr['x'], y=attr['y'], name=name, mode='markers', 
+        marker=dict(color=attr['color'], size=attr['size']), 
+        legendgroup="Facilities"
+    ))
 
-# Alliances Layer (Main HQ)
+# Alliances Layer
 for tag, attr in st.session_state.alliances.items():
-    fig.add_trace(go.Scatter(x=attr['x'], y=attr['y'], name=tag, mode='markers+text',
-                             text=[tag]*len(attr['x']), textposition="top center",
-                             marker=dict(size=28, color=attr['color'], symbol='diamond'), legendgroup="Alliances"))
+    fig.add_trace(go.Scatter(
+        x=attr['x'], y=attr['y'], name=tag, mode='markers+text',
+        text=[tag]*len(attr['x']), textposition="top center",
+        marker=dict(size=28, color=attr['color'], symbol='diamond'), 
+        legendgroup="Alliances"
+    ))
 
-# Alliance "Claim" Circles
-for tag, attr in st.session_state.alliances.items():
-    fig.add_trace(go.Scatter(x=attr['x'], y=attr['y'], mode='markers', showlegend=False, hoverinfo='skip',
-                             marker=dict(size=45, color='rgba(0,0,0,0)', line=dict(color=attr['color'], width=3))))
-
-fig.update_layout(template="plotly_dark", height=850, xaxis=dict(range=[0, 1200]), yaxis=dict(range=[0, 1200]),
-                  legend=dict(groupclick="toggleitem"))
+fig.update_layout(
+    template="plotly_dark", 
+    height=850, 
+    xaxis=dict(range=[0, 1200], title="X Coordinate"), 
+    yaxis=dict(range=[0, 1200], title="Y Coordinate"),
+    legend=dict(groupclick="toggleitem")
+)
 
 st.plotly_chart(fig, use_container_width=True)
