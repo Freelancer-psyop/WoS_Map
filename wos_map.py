@@ -39,9 +39,9 @@ alliances = {
 
 # 4. Sidebar Controls for Discord Users
 with st.sidebar:
-    st.header("🛠️ Tactical Tools")
+    st.header("🛠️ Tools")
     
-    with st.expander("Add Tactical Marker"):
+    with st.expander("Add Marker"):
         m_name = st.text_input("Label", "Enemy Portal")
         m_x = st.number_input("X Coord", 0, 1200, 500)
         m_y = st.number_input("Y Coord", 0, 1200, 500)
@@ -49,7 +49,7 @@ with st.sidebar:
             st.session_state.custom_markers.append({'name': m_name, 'x': m_x, 'y': m_y})
             st.rerun()
 
-    with st.expander("Draw March Path"):
+    with st.expander("Draw Banner Path"):
         l_x1 = st.number_input("Start X", 0, 1200, 100)
         l_y1 = st.number_input("Start Y", 0, 1200, 100)
         l_x2 = st.number_input("End X", 0, 1200, 300)
