@@ -4,19 +4,16 @@ import pandas as pd
 import os
 
 st.set_page_config(page_title="WoS Tactical Map", layout="wide")
-st.title("❄️ Whiteout Survival: State Tactical Command")
+st.title("❄️ WoS State Tactical Command")
 
-DATA_FILE = "wos_map_data.csv"
+# --- DATA FILES ---
+ALLIANCE_FILE = "wos_alliances.csv"
+CLAIMS_FILE = "wos_claims.csv"
+PATHS_FILE = "wos_paths.csv"
 
-# --- DATA PERSISTENCE ---
-def load_alliances():
-    if os.path.exists(DATA_FILE):
-        df = pd.read_csv(DATA_FILE)
-        return {row['tag']: {'x': [float(i) for i in str(row['x']).split('|')], 
-                             'y': [float(i) for i in str(row['y']).split('|')], 
-                             'color': row['color']} for _, row in df.iterrows()}
-    # Initial starting data
-    return {
+# --- PERSISTENCE LOGIC ---
+def load_data():
+    alliances = {
         'HEL': {'x': [728, 697], 'y': [902, 755], 'color': '#6600CC'},
         'KOR': {'x': [610, 518], 'y': [285, 444], 'color': '#993333'},
         'TTN': {'x': [1023, 437], 'y': [275, 643], 'color': '#003366'},
@@ -25,15 +22,37 @@ def load_alliances():
         'DRK': {'x': [516, 423], 'y': [129, 539], 'color': '#FF00FF'},
         'ttn': {'x': [288], 'y': [510], 'color': '#415466'}
     }
+    if os.path.exists(ALLIANCE_FILE):
+        df = pd.read_csv(ALLIANCE_FILE)
+        alliances = {row['tag']: {'x': [float(i) for i in str(row['x']).split('|')], 
+                                  'y': [float(i) for i in str(row['y']).split('|')], 
+                                  'color': row['color']} for _, row in df.iterrows()}
+    
+    claims = pd.read_csv(CLAIMS_FILE).to_dict('records') if os.path.exists(CLAIMS_FILE) else []
+    paths = pd.read_csv(PATHS_FILE).to_dict('records') if os.path.exists(PATHS_FILE) else []
+    
+    # Convert string paths back to lists
+    for p in paths:
+        p['x'] = [float(i) for i in str(p['x']).split('|')]
+        p['y'] = [float(i) for i in str(p['y']).split('|')]
+        
+    return alliances, claims, paths
 
-def save_alliances(data):
-    rows = [{'tag': t, 'x': "|".join(map(str, a['x'])), 'y': "|".join(map(str, a['y'])), 'color': a['color']} for t, a in data.items()]
-    pd.DataFrame(rows).to_csv(DATA_FILE, index=False)
+def save_all(alliances, claims, paths):
+    # Save Alliances
+    a_rows = [{'tag': t, 'x': "|".join(map(str, a['x'])), 'y': "|".join(map(str, a['y'])), 'color': a['color']} for t, a in alliances.items()]
+    pd.DataFrame(a_rows).to_csv(ALLIANCE_FILE, index=False)
+    # Save Claims
+    pd.DataFrame(claims).to_csv(CLAIMS_FILE, index=False)
+    # Save Paths
+    p_rows = [{'x': "|".join(map(str, p['x'])), 'y': "|".join(map(str, p['y'])), 'color': p['color']} for p in paths]
+    pd.DataFrame(p_rows).to_csv(PATHS_FILE, index=False)
 
+# --- INITIALIZE ---
 if 'alliances' not in st.session_state:
-    st.session_state.alliances = load_alliances()
+    st.session_state.alliances, st.session_state.claims, st.session_state.paths = load_data()
 
-# --- FULL FACILITY DATASET ---
+# Base Facility Data
 facilities = {
     'Construction Lvl 1': {'x': [1068, 537, 138, 138, 138, 666, 1068, 1068], 'y': [138, 138, 138, 666, 1038, 1068, 567, 1068], 'color': '#1f77b4', 'size': 12},
     'Construction Lvl 3': {'x': [486, 768, 867, 327], 'y': [327, 867, 567, 666], 'color': '#1f77b4', 'size': 20},
@@ -45,58 +64,4 @@ facilities = {
     'Weapon Lvl 4': {'x': [816, 387, 588], 'y': [486, 486, 867], 'color': '#9467bd', 'size': 24},
     'Gathering Lvl 1': {'x': [957, 537, 138, 87, 267, 636, 1137, 1068], 'y': [138, 87, 237, 666, 1068, 1137, 567, 936], 'color': '#2ca02c', 'size': 12},
     'Production Lvl 1': {'x': [1068, 768, 237, 138, 138, 327, 1068, 957], 'y': [237, 138, 138, 327, 957, 1038, 747, 1068], 'color': '#bcbd22', 'size': 12},
-    'Training Lvl 2': {'x': [237, 138, 486, 768, 957, 1068, 486, 768], 'y': [486, 747, 957, 1038, 747, 486, 138, 237], 'color': '#ff7f0e', 'size': 16},
-    'Expedition Lvl 3': {'x': [768, 327, 486, 867], 'y': [327, 567, 867, 666], 'color': '#17becf', 'size': 20}
-}
-
-# --- SIDEBAR TOOLS ---
-with st.sidebar:
-    st.header("Strategic Tools")
-    with st.expander("Update Alliance Position"):
-        # Select existing tag or type a new one
-        existing_tags = list(st.session_state.alliances.keys())
-        tag = st.selectbox("Select Alliance", existing_tags + ["Add New..."])
-        
-        if tag == "Add New...":
-            tag = st.text_input("New Alliance Tag")
-        
-        col = st.color_picker("Color", st.session_state.alliances.get(tag, {'color': '#FFFFFF'})['color'])
-        x_c = st.number_input("X Coordinate", 0, 1200, value=int(st.session_state.alliances.get(tag, {'x': [600]})['x'][0]))
-        y_c = st.number_input("Y Coordinate", 0, 1200, value=int(st.session_state.alliances.get(tag, {'y': [600]})['y'][0]))
-        
-        if st.button("Save HQ Location"):
-            if tag:
-                st.session_state.alliances[tag] = {'x': [x_c], 'y': [y_c], 'color': col}
-                save_alliances(st.session_state.alliances)
-                st.success(f"{tag} location updated!")
-                st.rerun()
-
-# --- MAP RENDERING ---
-fig = go.Figure()
-
-# Facilities Layer
-for name, attr in facilities.items():
-    fig.add_trace(go.Scatter(
-        x=attr['x'], y=attr['y'], name=name, mode='markers', 
-        marker=dict(color=attr['color'], size=attr['size']), 
-        legendgroup="Facilities"
-    ))
-
-# Alliances Layer
-for tag, attr in st.session_state.alliances.items():
-    fig.add_trace(go.Scatter(
-        x=attr['x'], y=attr['y'], name=tag, mode='markers+text',
-        text=[tag]*len(attr['x']), textposition="top center",
-        marker=dict(size=28, color=attr['color'], symbol='diamond'), 
-        legendgroup="Alliances"
-    ))
-
-fig.update_layout(
-    template="plotly_dark", 
-    height=850, 
-    xaxis=dict(range=[0, 1200], title="X Coordinate"), 
-    yaxis=dict(range=[0, 1200], title="Y Coordinate"),
-    legend=dict(groupclick="toggleitem")
-)
-
-st.plotly_chart(fig, use_container_width=True)
+    'Training Lvl 2': {'x': [237, 138, 486, 768, 957, 1068, 4
