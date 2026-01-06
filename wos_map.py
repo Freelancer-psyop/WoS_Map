@@ -141,5 +141,4 @@ for tag, attr in st.session_state.alliances.items():
                              textposition="top center", marker=dict(size=28, color=attr['color'], symbol='diamond')))
 
 fig.update_layout(template="plotly_dark", height=850, xaxis=dict(range=[0, 1200]), yaxis=dict(range=[0, 1200]))
-st.plotly_chart(fig, width='stretch')
-st.plotly_chart(fig, height='stretch')
+st.plotly_chart(fig, width='stretch', height='stretch')
